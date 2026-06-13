@@ -8,6 +8,8 @@ provider "aws" {
 
 resource "aws_s3_bucket" "data_lake" {
   bucket = "classicmodels-data-lake-gerardo-mikael-projetos"
+
+  force_destroy = true
 }
 
 #Security Group de forma simplificada sem limitação de ip, para fins de teste. Em produção, é recomendado restringir o acesso apenas aos IPs necessários
@@ -157,4 +159,21 @@ resource "aws_vpc_endpoint" "s3_endpoint" {
 
   # Associa o endpoint de forma limpa à tabela de rotas
   route_table_ids = [data.aws_route_table.default.id]
+}
+
+# Banco de dados lógico no Glue Data Catalog
+resource "aws_glue_catalog_database" "analytics_db" {
+  name = "classicmodels_analytics"
+}
+
+# Crawler que varre o S3 e cria as tabelas automaticamente
+resource "aws_glue_crawler" "s3_crawler" {
+  database_name = aws_glue_catalog_database.analytics_db.name
+  name          = "classicmodels-s3-parquet-crawler"
+  role          = data.aws_iam_role.academy_lab_role.arn
+
+  # Aponta para a raiz do bucket onde estão as subpastas das tabelas
+  s3_target {
+    path = "s3://${aws_s3_bucket.data_lake.bucket}/"
+  }
 }
